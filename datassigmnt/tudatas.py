@@ -20,6 +20,9 @@ def industrydata():
 
     return indct
 
+'''
+取对应的市值
+'''
 def get_stock_value(code):
     pass
 
