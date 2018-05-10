@@ -26,13 +26,13 @@ def get_stock_value(code):
 def get_industry_value(indct, n):
     y = datetime.date.year
     #cols = ['c_name','values','count']
-    indvalue = pd.DataFrame()
+    indvalue = pd.DataFrame(columns=['year','c_name','values','count'])
     for k in indct.keys():
         tmp =  pd.DataFrame({'year':range(y-n+1,y+1),
                              'c_name':k,
                              'values':pd.Series(0, index=list(range(n)), dtype=float),
                              'count': pd.Series(0, index=list(range(n)),dtype=int)})
-        indvalue.append( tmp)
+        indvalue = indvalue.append( tmp, ignore_index=True)
     for k,v in indct.items():
         for code in set(v):
             get_stock_value(code)
