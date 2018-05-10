@@ -23,16 +23,22 @@ def industrydata():
 def get_stock_value(code):
     pass
 
-def get_industry_value(indct, n):
+'''
+  创建 DataFrame数据集
+'''
+def build_industry_frame(indct, n):
     y = datetime.date.year
-    #cols = ['c_name','values','count']
-    indvalue = pd.DataFrame(columns=['year','c_name','values','count'])
+    indvalue = pd.DataFrame(columns=['year', 'c_name', 'values', 'count'])
     for k in indct.keys():
-        tmp =  pd.DataFrame({'year':range(y-n+1,y+1),
-                             'c_name':k,
-                             'values':pd.Series(0, index=list(range(n)), dtype=float),
-                             'count': pd.Series(0, index=list(range(n)),dtype=int)})
-        indvalue = indvalue.append( tmp, ignore_index=True)
+        tmp = pd.DataFrame({'year': range(y - n + 1, y + 1),
+                            'c_name': k,
+                            'values': pd.Series(0, index=list(range(n)), dtype=float),
+                            'count': pd.Series(0, index=list(range(n)), dtype=int)})
+        indvalue = indvalue.append(tmp, ignore_index=True)
+    return indvalue
+
+def get_industry_value(indct, n):
+    indvalues = build_industry_frame(indct, n)
     for k,v in indct.items():
         for code in set(v):
             get_stock_value(code)
