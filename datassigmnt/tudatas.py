@@ -3,6 +3,7 @@ import pandas as pd
 import datetime
 import time
 import calendar as cal
+import matplotlib.pyplot as plt
 
 '''
  按行业分类 和概念分类 
@@ -10,7 +11,7 @@ import calendar as cal
 '''
 
 def industrydata():
-    indls = ts.get_industry_classified()
+    indls = ts.get_industry_classified().head()
     print("获取工业分类数据成功")
     indct = dict()
     for _,row in indls.iterrows():
@@ -96,7 +97,9 @@ def build_industry_frame(indct):
 def handle_datas(codes, stocks):
     q = 'code == %s'%codes
     try:
-        return stocks.query(q)['totalAssets'].sum()
+        sum = stocks.query(q)['totalAssets'].sum()
+        print(sum)
+        return sum
     except:
         return 0
 
@@ -108,12 +111,13 @@ def get_industry_value( indct):
     rcount = indvalues.shape[0]
     #print(rcount)
     k = 1
-    for _,item in indvalues.iterrows():
+    for index,item in indvalues.iterrows():
         codes = indct.get( item['c_name'], None)
         if codes is not None:
             yearq = str(item['yearq'])
-            item['values'] = handle_datas(codes, get_stock_value( yearq))
-            item['count'] = len(set(codes))
+            indvalues['values'].loc[index] = handle_datas(codes, get_stock_value( yearq))
+            #item['values']
+            indvalues['count'].loc[index] = len(set(codes))
             #print("获取【%s-%s】分类股票总值成功"%(item['c_name'],yearq))
         else:
             item['values'] = 0
@@ -121,6 +125,10 @@ def get_industry_value( indct):
         c = (k/rcount)*100
         print("获取数据进度为:{:.2f}%".format(c))
         k +=1
+    print(indvalues)
+
+    indvalues.plot()
+    plt.show()
     return indvalues
 
 def conceptdata():
@@ -145,7 +153,8 @@ def main():
     #print(indct)
     print("生成工业分类字典成功")
     indvalue = get_industry_value(indct)
-    print(indvalue)
+    #print(indvalue)
+
     #conceptdata()
     #按概念化的变化
     #convalue= get_concept_value()
