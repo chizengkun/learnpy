@@ -1,4 +1,7 @@
-
+#tuitls.py
+'''
+   取汉字拼音的公用单元
+'''
 def single_get_first(unicode1):
     str1 = unicode1.encode('gbk')
     try:
@@ -62,6 +65,18 @@ def get_pycaps(str):
     for l in lst:
         charLst.append(single_get_first(l))
     return ''.join(charLst).upper()
+
+
+def get_lastday_by_year(year):
+    '''
+        取指定年的最后一天，如果是当前日期，去昨天的记录
+    '''
+    lastday = cal.monthrange(year, 12)
+    day = datetime.date(year, 12, lastday[1])
+    #如果是今年的最后一天，设置为今天
+    if day> datetime.date.today():
+        day = datetime.date.today() + datetime.timedelta(seconds = -1)
+    return day.strftime('%Y-%m-%d')
 
 if __name__ == '__main__':
     print(get_pycaps("工业"))

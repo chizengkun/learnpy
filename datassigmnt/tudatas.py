@@ -1,21 +1,25 @@
+#tudatas.py
 import tushare as ts
 import pandas as pd
 import datetime
+import math
 import calendar as cal
-import tuitls
 import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
-import os
 
-#font = FontProperties(fname=os.path.expandvars(r"%windir%\fonts\simsun.ttc"), size=14)
-'''
- 按行业分类 和概念分类 
- 统计按行业、按概念在近5年的总的估值变化
-'''
 
-def industrydata():
-    indls = ts.get_industry_classified()
-    print("获取工业分类数据成功")
+def classified_data(type='industry'):
+    '''
+    按行业分类分类统计按行业、季度近5年的总的估值变化 , 以字典的形式返回分类数据信息
+    :param type: 类型，默认为工业企业
+    :return:
+     {"工业企业":['600001','600002']}
+      分类： 对应的企业代码集合
+    '''
+    if type   == 'industry':
+        indls = ts.get_industry_classified()
+    elif type == 'concept':
+        indls = ts.get_concept_classified()
+    print("获取分类数据成功")
     indct = dict()
     for _,row in indls.iterrows():
         try:
@@ -26,18 +30,14 @@ def industrydata():
             pass
     return indct
 
-'''
-取指定年的最后一天，如果是当前日期，去昨天的记录
-'''
-def get_lastday_by_year(year):
-    lastday = cal.monthrange(year, 12)
-    day = datetime.date(year, 12, lastday[1])
-    #如果是今年的最后一天，设置为今天
-    if day> datetime.date.today():
-        day = datetime.date.today() + datetime.timedelta(seconds = -1)
-    return day.strftime('%Y-%m-%d')
 
 def try_nextday_basics(sday, itry=7):
+    '''
+    获取企业总资产，默认向后试7天
+    :param sday: 获取指定的天数的资产情况
+    :param itry: 默认重试7天
+    :return: 返回获取的总估计列表，DataFrame类型
+    '''
     day = datetime.datetime.strptime(sday,'%Y-%m-%d').date()
     #不超过当前日期
     if day > datetime.date.today():
@@ -59,13 +59,13 @@ def try_nextday_basics(sday, itry=7):
         except:
             day = day + datetime.timedelta(days=1)
 
-'''
-获取对应年份的股票的市值
-每年的股票数可能不太相同，需要根据返回的数据判断是否有市值
-get_stock_basics 只能获取到 2016-8-9的数据，其他的数据不能
-'''
+
 def get_stock_value(yearq):
-    #取year最后一天的市值
+    '''
+    获取指定季度的估值，转换为指定的某天
+    :param yearq: 季度 如 2017Q1
+    :return: 总值的DataFrame
+    '''
     v = yearq[-1]
     if v== '1':
         d = '-03-31'
@@ -80,23 +80,26 @@ def get_stock_value(yearq):
     return try_nextday_basics( sdate)
 
 def build_cloumns(indct):
+    '''
+    根据分类动态沟通 columns
+    :param indct: 按行业分类字典
+    :return: columns 列表
+    '''
     cols = []
     for k in indct.keys():
         cols.append(k)
     return cols
 
 
-'''
-  创建 DataFrame数据集
-  旧：   2016Q3 工业 33333  5
-        2016Q4  工业 44444  6
-  columns: yearq, c_name, values, count
-  新  
-  columns: index , GY,      ZH,    SY , ...
-     2016Q3      33333     44444  555
-'''
 def build_industry_frame(indct):
+    '''
     # get_stock_basics 数据只从 2016-8-9 开始 , 截止到今天
+    创建 DataFrame数据集
+    :param indct:
+    :return:
+    columns: index , GY,      ZH,    SY , ...
+     2016Q3      33333     44444  555
+    '''
     start = '2016-08-09'
     end = datetime.date.today().strftime('%Y-%m-%d')
     #当前年2018 , 按季度 总资产 的变化 [2016Q3, 2016Q4]  --> index=pr
@@ -107,13 +110,24 @@ def build_industry_frame(indct):
     return indvalue
 
 def handle_datas(codes, stocks):
+    '''
+    查询按行业分类企业的总资产值
+    :param codes: 企业代码列表 如['600001','600002']
+    :param stocks: 指定总的资产的DataFrame
+    :return: 总值
+    '''
     q = 'code == %s'%codes
     try:
         return stocks.query(q)['totalAssets'].sum()
     except:
-        return 0
+        return 0.0
 
 def get_industry_value( indct):
+    '''
+    按行业获取对应的值
+    :param indct: 行业分类字典
+    :return: 返回的DataFrame
+    '''
     indvalues = build_industry_frame(indct)
     #print(indvalues)
     print("创建按季度分析数据集成功")
@@ -126,7 +140,7 @@ def get_industry_value( indct):
         #按季度读取总值
         total_values = get_stock_value(yearq)
         for k,v in indct.items():
-            indvalues[k][index] = float(handle_datas(v, total_values))
+            indvalues[k][index] = handle_datas(v, total_values)
             # print("获取【%s-%s】分类股票总值成功"%(item['c_name'],yearq))
             #处理的进度情况  --TODO 文本进度条
             c = (icount/total)*100
@@ -135,33 +149,51 @@ def get_industry_value( indct):
     #print(indvalues)
     return indvalues
 
-def conceptdata():
-    conls = ts.get_concept_classified()
-    condct = dict()
-    for _, row in conls.iterrows():
-        try:
-            tmp = condct.get(row['c_name'], [])
-            tmp.append(row['code'])
-            condct[row['c_name']] = tmp
-        except:
-            pass
+def parse_show( indvalue):
+    '''
+    处理并展现数据
+    :param indvalue: DataFrame
+    :return:
+    '''
+    #将数量级相同的放到一个界面显示
+    #print( indvalue)
+    cols = indvalue.columns.values.tolist()
 
-    return condct
+    indvalue[cols] = indvalue[cols].astype('float64')
+    print(indvalue)
 
-def get_concept_value(condct):
-    pass
+    shdic = dict()
+    for _,item in indvalue.iterrows():
+        for c in cols:
+            s = '%e'%item[c]
+            if len(s)>1:
+                sv = int( s[s.index('+')+1: len(s)])
+                ret = shdic.get(sv, [])
+                ret.append(c)
+                shdic[sv] = ret
+        #只需要判断第一行数量级即可
+        break
+
+    for value in shdic.values():
+        ilen =  math.ceil(len(value)/5)
+        for ipos in range(ilen):
+            start = ipos *5
+            end = (ipos +1)*5
+            if end > len(value):
+                end = len(value)
+            indvalue[value[start: end]].plot()
+    plt.show()
+
 
 def main():
-    indct = industrydata()
+    indct = classified_data()
     #取按工业化的数据变化
     #print(indct)
     print("生成工业分类字典成功")
     indvalue = get_industry_value(indct)
-    print(indvalue)
+    #print(indvalue)
+    parse_show( indvalue)
 
-#行业分类过多时，无法查看
-    indvalue.plot()
-    plt.show()
 
 if __name__ == '__main__':
     main()
